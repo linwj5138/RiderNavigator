@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">RiderNavigator</string>
+    <string name="location">Location permission is required to navigate</string>
+    <string name="before_navigation">Please select a destination by clicking on the map before starting the navigation</string>
+    <string name="start">Start</string>
+    <string name="stop">Stop</string>
+</resources>
