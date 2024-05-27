@@ -1,8 +1,7 @@
 # RiderNavigator
 Provide our riders with the best navigation experience possible.
 
-
-1. 基本功能：
+1.0 已实现功能：
     * 包含一个地图和一个开始按钮。
     * 允许用户通过点击地图选择一个目的地。
     * 使用户能够导航到选定的目的地并实时查看他们的行驶路径。
@@ -10,12 +9,25 @@ Provide our riders with the best navigation experience possible.
         * 显示行驶路径的地图。
         * 行程耗时。
         * 行驶的总距离。
-2. 可选功能：
     * 增强用户体验的功能，如：
         * GPS信号丢失通知。
         * 路径重新计算。
         * 导航语音播报。
-        * 当前需要前往的方向。
+        * 地图中提示下一步前进箭头。
+
+已解决的一些问题：
+   1、横竖屏切换导致的生命周期问题；
+   2、权限申请；
+   3、获取当前定位之后再导航；
+   4、api_key存到secret中；
+
+仍有优化空间：
+   1、交互优化；
+   2、地图app的保活；
+   3、语音+震动提示；
+
+
+    
 
 
 
