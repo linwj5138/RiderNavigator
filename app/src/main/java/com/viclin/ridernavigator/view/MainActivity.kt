@@ -11,11 +11,14 @@ import android.location.Location
 import android.net.Uri
 import android.os.Bundle
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.text.Html
 import android.util.Log
+import android.view.View
 import android.widget.Button
+import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationManagerCompat
@@ -73,7 +76,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         textToSpeech = TextToSpeech(this, this)
 
-        startButton.setOnClickListener {
+        startButton.setOnSingleClickListener {
             if (isNavigating) {
                 stopNavigation()
             } else {
@@ -98,6 +101,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
             isNavigating = isNav
             if (isNav) {
                 startButton.text = getString(R.string.stop)
+                mapViewModel.updateNavStartTime(System.currentTimeMillis())
             } else {
                 startButton.text = getString(R.string.start)
             }
@@ -106,6 +110,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
         mapViewModel.direction.observe(this) { direction ->
             lastSpokenStepIndex = -1
 //            direction?.let { provideVoiceGuidance(it) }
+        }
+
+        mapViewModel.notice.observe(this) { notice ->
+            if(notice.isNotEmpty()) {
+                Toast.makeText(this, notice, Toast.LENGTH_SHORT).show()
+                mapViewModel.clearNotice()
+            }
         }
 
         //返回时如果正在导航先取消导航
@@ -223,8 +234,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
     }
 
     private fun startNavigation() {
-        mapViewModel.updateIsNavigating(true)
-        mapViewModel.updateNavStartTime(System.currentTimeMillis())
         //开始导航-清空历史里程
         mapViewModel.clearTripPath()
         getLastKnownLocation() // Get the current location when starting navigation
@@ -473,6 +482,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             textToSpeech.language = Locale.TAIWAN
+        }
+    }
+
+    private fun View.setOnSingleClickListener(interval: Long = 1000, onClick: (View) -> Unit) {
+        var lastClickTime: Long = 0
+        this.setOnClickListener { view ->
+            val currentTime = SystemClock.elapsedRealtime()
+            if (currentTime - lastClickTime >= interval) {
+                lastClickTime = currentTime
+                onClick(view)
+            }
         }
     }
 

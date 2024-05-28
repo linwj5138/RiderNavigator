@@ -45,23 +45,20 @@ class MapViewModel : ViewModel() {
 //    private val _isPermissionAllowed = MutableLiveData<Boolean>()
 //    val isPermissionAllowed: LiveData<Boolean> = _isPermissionAllowed
 
-    private val _elapsedTime = MutableLiveData<Long>()
-    val elapsedTime: LiveData<Long> get() = _elapsedTime
-
     private val _navStartTime = MutableLiveData<Long>(0L)
     val navStartTime: LiveData<Long> get() = _navStartTime
 
     private val _navEndTime = MutableLiveData<Long>(0L)
     val navEndTime: LiveData<Long> get() = _navEndTime
 
-    private val _totalDistance = MutableLiveData<Float>()
-    val totalDistance: LiveData<Float> get() = _totalDistance
-
     private val _route = MutableLiveData<List<LatLng>>()
     val route: LiveData<List<LatLng>> get() = _route
 
     private val _direction = MutableLiveData<DirectionsResponseV3>()
     val direction: LiveData<DirectionsResponseV3> get() = _direction
+
+    private val _notice = MutableLiveData<String>()
+    val notice : LiveData<String> get() = _notice
 
     fun fetchRoute(startLatLng: LatLng, endLatLng: LatLng) {
         DirectionsRepository.getRoute(startLatLng, endLatLng) { route ->
@@ -110,12 +107,17 @@ class MapViewModel : ViewModel() {
                 val response = withContext(Dispatchers.IO) {
                     RetrofitClient.directionsDataSourceV3.getDirectionsV3(origin, destination)
                 }
+                if (response.routes.isNotEmpty()) {
+                    _isNavigating.value = true
+                }
                 _direction.value = response
                 _route.value = response.routes[0].overview_polyline.polyLine
             } catch (e: HttpException) {
-                Log.e("viewModelScope", "fetchRouteV2: ", e)
+                _notice.value = "Failed to start navigation"
+                Log.e("viewModelScope", "fetchDirection: ", e)
             } catch (e: Exception) {
-                Log.e("viewModelScope", "fetchRouteV2: ", e)
+                _notice.value = "Failed to start navigation"
+                Log.e("viewModelScope", "fetchDirection: ", e)
             }
         }
     }
@@ -123,10 +125,13 @@ class MapViewModel : ViewModel() {
     // 检查用户是否偏离了计划路线，触发重新计算路径的操作
     private fun scheduleCheckInPath() {
         if (isNavigating.value == true && currentLocation.value != null && route.value != null) {
-            Log.d("scheduleCheckInPath", "scheduleCheckInPath: ${isOffRoute(currentLocation.value!!, route.value!!)}")
+            Log.d(
+                "scheduleCheckInPath",
+                "scheduleCheckInPath: ${isOffRoute(currentLocation.value!!, route.value!!)}"
+            )
             if (isOffRoute(currentLocation.value!!, route.value!!)) {
                 destinationMarker.value?.let {
-                    fetchRouteV2(
+                    fetchDirection(
                         currentLocation.value!!,
                         it.position
                     )
@@ -189,12 +194,8 @@ class MapViewModel : ViewModel() {
         _tripPath.value?.clear()
     }
 
-    fun updateElapsedTime(time: Long) {
-        _elapsedTime.value = time
-    }
-
-    fun updateTotalDistance(distance: Float) {
-        _totalDistance.value = distance
+    fun clearNotice() {
+        _notice.value = ""
     }
 
     private var timer: Timer? = null
