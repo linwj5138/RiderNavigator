@@ -3,12 +3,9 @@ package com.viclin.ridernavigator.network.service
 import com.viclin.ridernavigator.BuildConfig
 import com.viclin.ridernavigator.model.DirectionRequestV2
 import com.viclin.ridernavigator.model.DirectionsResponseV2
-import com.viclin.ridernavigator.model.LocationModel
-import com.viclin.ridernavigator.model.RouteModifiers
 import retrofit2.http.Body
 import retrofit2.http.Headers
 import retrofit2.http.POST
-import retrofit2.http.Query
 
 /**
  *
