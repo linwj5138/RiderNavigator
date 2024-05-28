@@ -8,6 +8,7 @@ import com.viclin.ridernavigator.source.DirectionsDataSourceV2
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+//暂未使用
 object RemoteDirectionsDataSourceV2 : DirectionsDataSourceV2 {
     override suspend fun getDirectionsV2(requestBody: DirectionRequestV2): RequestState<DirectionsResponseV2> =
         withContext(Dispatchers.IO) {

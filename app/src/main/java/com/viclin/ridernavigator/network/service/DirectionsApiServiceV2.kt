@@ -17,7 +17,7 @@ import retrofit2.http.Query
  *
  */
 
-//获取两点之间的导航路径
+//获取两点之间的导航路径,但是没有导航提示信息,暂时不采用改ApiService
 interface DirectionsApiServiceV2 {
     @Headers(
         "Content-Type: application/json",

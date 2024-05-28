@@ -7,6 +7,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.viclin.ridernavigator.R
 
+//处理通知
 class NotificationHelper(private val notificationManager: NotificationManager) {
 
     companion object {

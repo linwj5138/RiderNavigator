@@ -9,6 +9,8 @@ import retrofit2.http.Query
  * api: https://maps.googleapis.com/maps/api/directions/outputFormat?parameters
  * guide: https://developers.google.com/maps/documentation/directions/get-directions?hl=zh-cn#maps_http_directions_sydney_perth_waypoints_latlng-txt
  */
+
+//包含路径规划和导航指引,项目优先采用这个ApeService
 interface DirectionsApiServiceV3 {
     @GET("directions/json")
     suspend fun getDirectionsV3(

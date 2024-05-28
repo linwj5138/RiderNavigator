@@ -1,6 +1,5 @@
 package com.viclin.ridernavigator.network
 
-import com.viclin.ridernavigator.network.service.DirectionsApiService
 import com.viclin.ridernavigator.network.service.DirectionsApiServiceV2
 import com.viclin.ridernavigator.network.service.DirectionsApiServiceV3
 import okhttp3.OkHttpClient
@@ -24,20 +23,6 @@ object RetrofitClient {
         builder.addInterceptor(logging.setLevel(HttpLoggingInterceptor.Level.BODY))
         builder.build()
     }
-
-//    val retrofitInstance: Retrofit by lazy {
-//        Retrofit.Builder()
-//            .client(client)
-//            .baseUrl(BASE_URL)
-//            .addConverterFactory(GsonConverterFactory.create())
-//            .build()
-//    }
-
-//    val directionsApiService: DirectionsApiService by lazy {
-//        retrofitInstance.create(DirectionsApiService::class.java)
-//    }
-
-    val directionsApiService by lazy { getService(DirectionsApiService::class.java, BASE_URL) }
 
     val directionsDataSourceV2 by lazy { getService(DirectionsApiServiceV2::class.java, BASE_URL_V2) }
 

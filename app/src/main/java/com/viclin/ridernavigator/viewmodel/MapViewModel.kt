@@ -9,13 +9,8 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.Polyline
 import com.google.maps.android.PolyUtil
-import com.viclin.ridernavigator.model.DirectionRequestV2
-import com.viclin.ridernavigator.model.LatLngModel
-import com.viclin.ridernavigator.model.LatLngParentModel
-import com.viclin.ridernavigator.model.LocationModel
 import com.viclin.ridernavigator.model.direction.DirectionsResponseV3
 import com.viclin.ridernavigator.network.RetrofitClient
-import com.viclin.ridernavigator.repository.DirectionsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -23,6 +18,9 @@ import retrofit2.HttpException
 import java.util.Timer
 import kotlin.concurrent.timerTask
 
+/**
+ * 主页面：地图显示、目的地选择、一键导航
+ */
 class MapViewModel : ViewModel() {
     private val _currentLocation = MutableLiveData<LatLng>()
     val currentLocation: LiveData<LatLng> get() = _currentLocation
@@ -39,16 +37,13 @@ class MapViewModel : ViewModel() {
     private val _isPathPlanned = MutableLiveData<Boolean>()
     val isPathPlanned: LiveData<Boolean> get() = _isPathPlanned
 
-    private val _isNavigating = MutableLiveData<Boolean>(false)
+    private val _isNavigating = MutableLiveData(false)
     val isNavigating: LiveData<Boolean> get() = _isNavigating
 
-//    private val _isPermissionAllowed = MutableLiveData<Boolean>()
-//    val isPermissionAllowed: LiveData<Boolean> = _isPermissionAllowed
-
-    private val _navStartTime = MutableLiveData<Long>(0L)
+    private val _navStartTime = MutableLiveData(0L)
     val navStartTime: LiveData<Long> get() = _navStartTime
 
-    private val _navEndTime = MutableLiveData<Long>(0L)
+    private val _navEndTime = MutableLiveData(0L)
     val navEndTime: LiveData<Long> get() = _navEndTime
 
     private val _route = MutableLiveData<List<LatLng>>()
@@ -58,46 +53,7 @@ class MapViewModel : ViewModel() {
     val direction: LiveData<DirectionsResponseV3> get() = _direction
 
     private val _notice = MutableLiveData<String>()
-    val notice : LiveData<String> get() = _notice
-
-    fun fetchRoute(startLatLng: LatLng, endLatLng: LatLng) {
-        DirectionsRepository.getRoute(startLatLng, endLatLng) { route ->
-            _route.value = route!!
-        }
-    }
-
-    fun fetchRouteV2(startLatLng: LatLng, endLatLng: LatLng) {
-        val origin = LocationModel(
-            LatLngParentModel(
-                LatLngModel(
-                    latitude = startLatLng.latitude,
-                    longitude = startLatLng.longitude
-                )
-            )
-        )
-        val destination = LocationModel(
-            LatLngParentModel(
-                LatLngModel(
-                    latitude = endLatLng.latitude,
-                    longitude = endLatLng.longitude
-                )
-            )
-        )
-        val requestBody = DirectionRequestV2(origin, destination)
-        viewModelScope.launch {
-            try {
-                val response = withContext(Dispatchers.IO) {
-                    RetrofitClient.directionsDataSourceV2.getDirectionV2(requestBody)
-                }
-                //演示用只取第一条路径规划；现实不妨交由用户自己根据(时间、路程)来选路径方案
-                _route.value = response.routes[0].polyline.polyLine
-            } catch (e: HttpException) {
-                Log.e("viewModelScope", "fetchRouteV2: ", e)
-            } catch (e: Exception) {
-                Log.e("viewModelScope", "fetchRouteV2: ", e)
-            }
-        }
-    }
+    val notice: LiveData<String> get() = _notice
 
     fun fetchDirection(startLatLng: LatLng, endLatLng: LatLng) {
         val origin = "${startLatLng.latitude},${startLatLng.longitude}"
