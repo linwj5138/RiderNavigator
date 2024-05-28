@@ -3,10 +3,7 @@ package com.viclin.ridernavigator.view
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Color
-import android.graphics.Matrix
 import android.location.Location
 import android.net.Uri
 import android.os.Bundle
@@ -34,13 +31,13 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
-import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.PolylineOptions
 import com.google.android.material.snackbar.Snackbar
+import com.google.maps.android.SphericalUtil
 import com.viclin.ridernavigator.R
 import com.viclin.ridernavigator.util.NotificationHelper
 import com.viclin.ridernavigator.viewmodel.MapViewModel
@@ -62,7 +59,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
     private var isNavigating: Boolean = false
     private var lastSpokenStepIndex: Int = -1
 
-    private var directionMarker: Marker? = null
+    private var stepDestination: LatLng? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -109,28 +106,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
 
         mapViewModel.direction.observe(this) { direction ->
             lastSpokenStepIndex = -1
-//            direction?.let { provideVoiceGuidance(it) }
         }
 
         mapViewModel.notice.observe(this) { notice ->
-            if(notice.isNotEmpty()) {
+            if (notice.isNotEmpty()) {
                 Toast.makeText(this, notice, Toast.LENGTH_SHORT).show()
                 mapViewModel.clearNotice()
             }
         }
-
-        //返回时如果正在导航先取消导航
-//        onBackPressedDispatcher.addCallback(object : OnBackPressedCallback(true) {
-//            override fun handleOnBackPressed() {
-//                if (isNavigating) {
-//                    stopNavigation()
-//                } else {
-//                    this.isEnabled = false
-//                    onBackPressedDispatcher.onBackPressed()
-//                    this.isEnabled = true
-//                }
-//            }
-//        })
 
     }
 
@@ -218,6 +201,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
                 }
             }
         }
+
     }
 
     @SuppressLint("MissingPermission")
@@ -227,12 +211,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
                 location?.let {
                     val currentLatLng = LatLng(it.latitude, it.longitude)
                     mapViewModel.updateLocation(currentLatLng)
-                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 16f))
+                    mMap.moveCamera(
+                        CameraUpdateFactory.newLatLngZoom(
+                            currentLatLng,
+                            if (isNavigating) 18f else 16f
+                        )
+                    )
                 }
             }
         }
     }
 
+    //开始导航
     private fun startNavigation() {
         //开始导航-清空历史里程
         mapViewModel.clearTripPath()
@@ -246,6 +236,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
 
     }
 
+    //导航结束
     private fun stopNavigation() {
         mapViewModel.updateIsNavigating(false)
         mapViewModel.updateNavEndTime(System.currentTimeMillis())
@@ -254,7 +245,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
         fusedLocationClient.removeLocationUpdates(locationCallback)
         //Stop checking inPath
         mapViewModel.stopTimerFoCheckingPath()
-        directionMarker?.remove() // 取消箭头展示
+        //恢复地图为非导航镜头
+        mapViewModel.currentLocation.value?.let { it -> resetDirection(it) }
     }
 
     private fun goToTripSummary() {
@@ -299,7 +291,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
         override fun onLocationResult(locationResult: LocationResult) {
             val location = locationResult.lastLocation ?: return
             val currentLatLng = LatLng(location.latitude, location.longitude)
-            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 16f))
+            mMap.moveCamera(
+                CameraUpdateFactory.newLatLngZoom(
+                    currentLatLng,
+                    if (isNavigating) 18f else 16f
+                )
+            )
 
             // 更新用户当前位置
             mapViewModel.updateLocation(currentLatLng)
@@ -315,6 +312,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
                     //到达目的地主动结束导航并总结行程
                     stopNavigation()
                     goToTripSummary()
+                }
+            }
+
+            if (isNavigating) {
+                stepDestination?.let {
+                    updateDirection(currentLatLng, it)
                 }
             }
         }
@@ -394,6 +397,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
     }
 
+    //播报导航指示语音
     @SuppressLint("NewApi")
     private fun provideVoiceGuidance(location: Location) {
         if (mapViewModel.direction.value == null) return
@@ -403,6 +407,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
                 for ((stepIndex, step) in leg.steps.withIndex()) {
                     val stepStartLocation = LatLng(step.start_location.lat, step.start_location.lng)
                     val stepEndLocation = LatLng(step.end_location.lat, step.end_location.lng)
+                    stepDestination = stepEndLocation
                     if (isUserNearStep(location, stepStartLocation, stepEndLocation)) {
                         if (stepIndex > lastSpokenStepIndex) {
                             val instruction =
@@ -410,7 +415,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
                                     .toString()
                             textToSpeech.speak(instruction, TextToSpeech.QUEUE_ADD, null, null)
                             lastSpokenStepIndex = stepIndex
-                            showDirectionArrow(stepStartLocation, stepEndLocation)
                         }
                     }
                 }
@@ -443,35 +447,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
         return startDistance[0] < 50 || endDistance[0] < 50
     }
 
-    private fun showDirectionArrow(startLocation: LatLng, endLocation: LatLng) {
-        val angle = calculateBearing(startLocation, endLocation)
-        val arrowBitmap = rotateBitmap(BitmapFactory.decodeResource(resources, R.drawable.arrow_up), angle)
-        val markerOptions = MarkerOptions()
-            .position(startLocation)
-            .icon(BitmapDescriptorFactory.fromBitmap(arrowBitmap))
-            .anchor(0.5f, 0.5f)
-
-        directionMarker?.remove()
-        directionMarker = mMap.addMarker(markerOptions)
-    }
-
-    private fun calculateBearing(startLocation: LatLng, endLocation: LatLng): Float {
-        val startLat = Math.toRadians(startLocation.latitude)
-        val startLng = Math.toRadians(startLocation.longitude)
-        val endLat = Math.toRadians(endLocation.latitude)
-        val endLng = Math.toRadians(endLocation.longitude)
-        val dLng = endLng - startLng
-        val y = Math.sin(dLng) * Math.cos(endLat)
-        val x = Math.cos(startLat) * Math.sin(endLat) - Math.sin(startLat) * Math.cos(endLat) * Math.cos(dLng)
-        return Math.toDegrees(Math.atan2(y, x)).toFloat()
-    }
-
-    private fun rotateBitmap(source: Bitmap, angle: Float): Bitmap {
-        val matrix = Matrix()
-        matrix.postRotate(angle)
-        return Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
-    }
-
     override fun onDestroy() {
         textToSpeech.stop()
         textToSpeech.shutdown()
@@ -479,12 +454,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
         fusedLocationClient.removeLocationUpdates(locationCallback)
     }
 
+    //TTS初始化完成
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             textToSpeech.language = Locale.TAIWAN
         }
     }
 
+    //防止重复点击
     private fun View.setOnSingleClickListener(interval: Long = 1000, onClick: (View) -> Unit) {
         var lastClickTime: Long = 0
         this.setOnClickListener { view ->
@@ -494,6 +471,31 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, TextToSpeech.OnIni
                 onClick(view)
             }
         }
+    }
+
+    //显示导航中的镜头感
+    private fun updateDirection(currentLocation: LatLng, destination: LatLng) {
+        val bearing = SphericalUtil.computeHeading(currentLocation, destination)
+
+        // Zoom and tilt the map to show the current location and direction
+        val cameraPosition = CameraPosition.Builder()
+            .target(currentLocation)
+            .zoom(18f)
+            .bearing(bearing.toFloat())
+            .tilt(45f)
+            .build()
+        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
+    }
+
+    //恢复地图Camera默认状态
+    private fun resetDirection(currentLocation: LatLng) {
+        val cameraPosition = CameraPosition.Builder()
+            .target(currentLocation)
+            .zoom(16f)
+            .bearing(0F)
+            .tilt(0f)
+            .build()
+        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
     }
 
 }
